@@ -20,8 +20,10 @@ int kont_helb=1;
 bool bira=false;
 
 float kp=0.25;
-float ki=0.02;
-float kd=0.002;
+float ki=0.00001;
+float kd=0.005;
+
+bool talk=false;
 
 
   
@@ -32,20 +34,6 @@ int i;
 task music() {
     PlayTone(TONE_A4, MS_500);
     Wait(500);
-}
-task talka ( )
-{
-	int balio;
-	SetSensorLowspeed(US);
-	while (true)
-	{
-		balio = SensorUS(US);
-		if(balio<=25){
-			Off(OUT_AC);
-			Wait (ITXOIN_DENB);
-		}
-	}
-
 }
 
 
@@ -63,7 +51,7 @@ task kolorea()
 				kolore = 2; break;
 			default:
 				kolore = 0; break;}
-		//Wait(300);
+		
 		if(kolore!=0 && aurr_kol!=kolore){
 			kont++;
 			aurr_kol=kolore;
@@ -76,6 +64,7 @@ task kolorea()
 			bira=true;
 			//StartTask(music);
 		}
+		Wait(300);
 		
 	}
 
@@ -87,19 +76,7 @@ task biratu(){
 	Wait(1500);
 	Off(OUT_AC);
 }
-task biratu2(){
-	float tot=0;
-    float err_t=0;
-    float err=0;
-    float err_dif=0;
-    float abiadura_dif=0;
-    err=-0.4*100-0.3*100-0.2*100-0.1*100+0.1*100+0.2*50+0.3*0+0.4*0;
-    err_t=err_t+err;
-    err_dif=err-err_ant;
-    abiadura_dif=err*kp;
-    OnFwdReg(OUT_C,30+abiadura_dif,OUT_REGMODE_SPEED);
-    OnFwdReg(OUT_A,30-abiadura_dif,OUT_REGMODE_SPEED);
-}
+
 
 task marra()
 {
@@ -117,10 +94,11 @@ task marra()
 	line_loc[7] = LCD_LINE8;
 
 	unsigned byte bal[8];
-
+	float err_t=0;
+	float err_ant=0;
   while ( true ) {
       float tot=0;
-      float err_t=0;
+      //float err_t=0;
       float err=0;
       float err_dif=0;
       float abiadura_dif=0;
@@ -131,49 +109,75 @@ task marra()
       LSA_ReadRaw_Calibrated (SensorPort, ADDR, bal);
       LSA_ReadRaw_Calibrated (SensorPort, ADDR, bal2);
 
-      int beltzak=0; 
-      int zuriak=0;
-      int threshold=15;
-      for(i=0;i<4;i++){
-      	if(bal2[i]>=90){
-      		zuriak++;
-      	}
-      }
-      for (i=4; i<8;i++){
-      	if(bal2[i]<=5){
-      		beltzak++;
-      	}
-      }
-      if (beltzak>=4 && bira==true){
-      	Wait(100);
-      	Off(OUT_AC);
-		OnFwdReg(OUT_A,10,OUT_REGMODE_SPEED);
-		OnRevReg(OUT_C,10,OUT_REGMODE_SPEED);
-		Wait(1300);
-		Off(OUT_AC);
-		Wait(500);
-      	bira=false;
+      if(talk==false){
+      	int beltzak=0; 
+     	 int zuriak=0;
+      	int threshold=15;
+      	for(i=0;i<4;i++){
+     	 	if(bal2[i]>=90){
+      			zuriak++;
+      		}
+     	 }
+     	 for (i=2; i<8;i++){
+     	 	if(bal2[i]<=5){
+      			beltzak++;
+      		}
+     	 }
+      	if (beltzak>=5 && bira==true){
+      		Wait(100);
+      		Off(OUT_AC);
+			OnFwdReg(OUT_A,10,OUT_REGMODE_SPEED);
+			OnRevReg(OUT_C,10,OUT_REGMODE_SPEED);
+			Wait(1350);
+			OnFwdReg(OUT_AC,-10,OUT_REGMODE_SPEED);
+			Wait(100);
+			Off(OUT_AC);
+			Wait(500);
+      		bira=false;
+     	 }else{
+      		err=-((bal[0]+bal[1]+bal[2]+bal[3])/4)+((bal[4]+bal[5]+bal[6]+bal[7])/4);
+      		//err=-0.4*bal[0]-0.3*bal[1]-0.2*bal[2]-0.1*bal[3]+0.1*bal[4]+0.2*bal[5]+0.3*bal[6]+0.4*bal[7];
+      		err_t=err_t+err;
+      		err_dif=err-err_ant;
+      		err_ant=err;
+      		if(abs(err)>95){
+      			kp=0.17;
+      		}else{
+      			kp=0.13;
+      		}
+      		
+      		kd=0.0625;
+      		ki=0.006;
+      		abiadura_dif=err*kp+err_dif*kd;
+     		OnFwdReg(OUT_A,20-abiadura_dif,OUT_REGMODE_SPEED);
+			OnFwdReg(OUT_C,20+abiadura_dif,OUT_REGMODE_SPEED);
+     	 }
       }else{
-      	//err=-((bal[0]+bal[1]+bal[2]+bal[3])/4)+((bal[4]+bal[5]+bal[6]+bal[7])/4);
-      	err=-0.4*bal[0]-0.3*bal[1]-0.2*bal[2]-0.1*bal[3]+0.1*bal[4]+0.2*bal[5]+0.3*bal[6]+0.4*bal[7];
-      	err_t=err_t+err;
-      	err_dif=err-err_ant;
-      	if(abs(err)<27){
-      		kp=0.01;
-     	 }else if(abs(err)>85){
-      		kp=0.15;
-      	}
-      	else{
-      		kp=0.07;
-      	}
-      	abiadura_dif=err*kp;
-     	OnFwdReg(OUT_C,20+abiadura_dif,OUT_REGMODE_SPEED);
-      	OnFwdReg(OUT_A,20-abiadura_dif,OUT_REGMODE_SPEED);
+      	Off(OUT_AC);
       }
+      Wait(200);
+      
 
       
 
    }
+}
+task talka ( )
+{
+	int balio;
+	SetSensorLowspeed(US);
+	while (true)
+	{
+		balio = SensorUS(US);
+		if(balio<=25){
+			Off(OUT_AC);
+			talk=true;	
+		}else{
+			talk=false;
+		}
+		Wait(200);
+	}
+
 }
 
 
@@ -182,8 +186,8 @@ task marra()
 
 task main()
 {
-	StartTask(talka);
 	StartTask(kolorea);
 	StartTask(marra);
+	StartTask(talka);
 }
 
